@@ -14,7 +14,7 @@ if (fs.existsSync(cryptoJS)) eval(fs.readFileSync(cryptoJS, 'utf8'));
 if (fs.existsSync(encrypt)) eval(fs.readFileSync(encrypt, 'utf8'));
 if (fs.existsSync(tpEncrypt)) eval(fs.readFileSync(tpEncrypt, 'utf8'));
 
-const REQUEST_TIMEOUT = 10000;
+const REQUEST_TIMEOUT = 5000;
 
 function req(ip, urlPath, method, headers, body, timeoutMs) {
   timeoutMs = timeoutMs || REQUEST_TIMEOUT;
@@ -60,8 +60,8 @@ class RouterClient {
 
   async _throttle() {
     const now = Date.now();
-    if (this._lastReq && now - this._lastReq < 1000) {
-      await new Promise(r => setTimeout(r, 1000 - (now - this._lastReq)));
+    if (this._lastReq && now - this._lastReq < 500) {
+      await new Promise(r => setTimeout(r, 500 - (now - this._lastReq)));
     }
     this._lastReq = Date.now();
   }
@@ -71,13 +71,12 @@ class RouterClient {
   }
 
   async _retry(fn) {
-    const delays = [1000, 2000, 4000];
+    const delays = [1000, 2000];
     let lastErr;
-    for (let i = 0; i <= 3; i++) {
+    for (let i = 0; i <= 1; i++) {
       try {
         if (i > 0) {
-          let wait = delays[i - 1] || 4000;
-          if (lastErr && /timeout/i.test(lastErr.message || '')) wait *= 2;
+          const wait = delays[i - 1] || 1000;
           await new Promise(r => setTimeout(r, wait));
         }
         return await fn();
@@ -95,8 +94,7 @@ class RouterClient {
     await this._throttle();
     try {
       return await this._retry(async () => {
-        await this._throttle();
-        const p = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
+ = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
         const ee = p.body.match(/ee="([^"]+)"/)[1];
         const nn = p.body.match(/nn="([^"]+)"/)[1];
         const seq = p.body.match(/seq="([^"]+)"/)[1];
@@ -138,8 +136,7 @@ class RouterClient {
     await this._throttle();
     try {
       return await this._retry(async () => {
-        await this._throttle();
-        const encrypted = this.enc.AESEncrypt(plain, 0);
+ = this.enc.AESEncrypt(plain, 0);
         const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
         const headers = {
           Referer: `http://${this.ip}/`,
@@ -166,7 +163,10 @@ class RouterClient {
       '[ETH_SWITCH#0,0,0,0,0,0#0,0,0,0,0,0]4,0',
       ''
     ].join('\r\n');
-    const raw = await this.call(q);
+    const raw = await Promise.race([
+      this.call(q),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('getStatus timeout after 15s')), 15000))
+    ]).catch(e => ({ error: 'router_unavailable', message: e.message }));
     if (raw && raw.error) return raw;
     try { return this.parseStatus(raw); }
     catch (e) { return { error: 'router_unavailable', message: e.message, raw }; }
