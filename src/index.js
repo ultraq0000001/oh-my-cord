@@ -15,12 +15,15 @@ async function main() {
   let routerTarget = null;
   try {
     const config = readRouterConfig();
+    if (!config) throw new Error('no router config');
     routerTarget = new RouterTPLinkTarget(config);
     const r = await routerTarget.connect();
     console.log('Router target:', JSON.stringify(r));
-    if (r.ok) console.log('Router status:', JSON.stringify(await routerTarget.getLinkState(), null, 2));
+    if (r && r.ok) console.log('Router status:', JSON.stringify(await routerTarget.getLinkState(), null, 2));
+    else { console.log('Router unavailable - running TDR-only mode'); routerTarget = null; }
   } catch (e) {
-    console.log('Router optional, skipping:', e.message);
+    console.log('Router unavailable - running TDR-only mode');
+    routerTarget = null;
   }
 
   console.log('\n=== Realtek TDR (8-wire cable test) ===');

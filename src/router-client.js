@@ -14,14 +14,34 @@ if (fs.existsSync(cryptoJS)) eval(fs.readFileSync(cryptoJS, 'utf8'));
 if (fs.existsSync(encrypt)) eval(fs.readFileSync(encrypt, 'utf8'));
 if (fs.existsSync(tpEncrypt)) eval(fs.readFileSync(tpEncrypt, 'utf8'));
 
-function req(ip, urlPath, method, headers, body) {
+const REQUEST_TIMEOUT = 10000;
+
+function req(ip, urlPath, method, headers, body, timeoutMs) {
+  timeoutMs = timeoutMs || REQUEST_TIMEOUT;
   return new Promise((resolve, reject) => {
+    let settled = false;
     const r = http.request({ host: ip, port: 80, path: urlPath, method, headers }, res => {
       let d = '';
       res.on('data', c => d += c);
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: d }));
+      res.on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ status: res.statusCode, headers: res.headers, body: d });
+      });
     });
-    r.on('error', reject);
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { r.destroy(); } catch (e) {}
+      reject(new Error('Request timeout after ' + Math.round(timeoutMs / 1000) + 's'));
+    }, timeoutMs);
+    r.on('error', e => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(e);
+    });
     if (body) r.write(body);
     r.end();
   });
@@ -35,6 +55,7 @@ class RouterClient {
     this.cookie = null;
     this.enc = null;
     this._lastReq = 0;
+    this.sessionValid = false;
   }
 
   async _throttle() {
@@ -45,55 +66,93 @@ class RouterClient {
     this._lastReq = Date.now();
   }
 
+  isSessionValid() {
+    return !!(this.cookie && this.enc && this.sessionValid);
+  }
+
+  async _retry(fn) {
+    const delays = [1000, 2000, 4000];
+    let lastErr;
+    for (let i = 0; i <= 3; i++) {
+      try {
+        if (i > 0) {
+          let wait = delays[i - 1] || 4000;
+          if (lastErr && /timeout/i.test(lastErr.message || '')) wait *= 2;
+          await new Promise(r => setTimeout(r, wait));
+        }
+        return await fn();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
+  }
+
   async login() {
+    if (this.isSessionValid()) {
+      return { ret: 0, reused: true };
+    }
     await this._throttle();
     try {
-      const p = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
-      const ee = p.body.match(/ee="([^"]+)"/)[1];
-      const nn = p.body.match(/nn="([^"]+)"/)[1];
-      const seq = p.body.match(/seq="([^"]+)"/)[1];
+      return await this._retry(async () => {
+        await this._throttle();
+        const p = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
+        const ee = p.body.match(/ee="([^"]+)"/)[1];
+        const nn = p.body.match(/nn="([^"]+)"/)[1];
+        const seq = p.body.match(/seq="([^"]+)"/)[1];
 
-      this.enc = $.encrypt.encryptManager.genEncryptor();
-      this.enc.setSeq(seq);
-      this.enc.setRSAKey(nn, ee);
-      this.enc.setHash(this.user, this.password);
-      this.enc.genAESKey();
+        this.enc = $.encrypt.encryptManager.genEncryptor();
+        this.enc.setSeq(seq);
+        this.enc.setRSAKey(nn, ee);
+        this.enc.setHash(this.user, this.password);
+        this.enc.genAESKey();
 
-      const plainLogin = `8\r\n[/cgi/login#0,0,0,0,0,0#0,0,0,0,0,0]0,2\r\nusername=${this.user}\r\npassword=${this.password}\r\n`;
-      const encrypted = this.enc.AESEncrypt(plainLogin, 1);
-      const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
+        const plainLogin = `8\r\n[/cgi/login#0,0,0,0,0,0#0,0,0,0,0,0]0,2\r\nusername=${this.user}\r\npassword=${this.password}\r\n`;
+        const encrypted = this.enc.AESEncrypt(plainLogin, 1);
+        const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
 
-      const l = await req(this.ip, '/cgi_gdpr', 'POST', {
-        Referer: `http://${this.ip}/`,
-        'Content-Type': 'text/plain',
-        'Content-Length': Buffer.byteLength(postData)
-      }, postData);
+        const l = await req(this.ip, '/cgi_gdpr', 'POST', {
+          Referer: `http://${this.ip}/`,
+          'Content-Type': 'text/plain',
+          'Content-Length': Buffer.byteLength(postData)
+        }, postData);
 
-      if (l.headers['set-cookie']) {
-        this.cookie = l.headers['set-cookie'][0].split(';')[0];
-      }
-      const decrypted = this.enc.AESDecrypt(l.body);
-      return decrypted;
+        if (l.headers['set-cookie']) {
+          this.cookie = l.headers['set-cookie'][0].split(';')[0];
+        }
+        const decrypted = this.enc.AESDecrypt(l.body);
+        this.sessionValid = true;
+        return decrypted;
+      });
     } catch (e) {
-      return { error: e.message, degraded: true };
+      this.sessionValid = false;
+      return { error: 'router_unavailable', message: e.message };
     }
   }
 
   async call(plain) {
+    if (!this.isSessionValid()) {
+      const lr = await this.login();
+      if (lr && lr.error) return lr;
+    }
     await this._throttle();
     try {
-      const encrypted = this.enc.AESEncrypt(plain, 0);
-      const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
-      const headers = {
-        Referer: `http://${this.ip}/`,
-        'Content-Type': 'text/plain',
-        'Content-Length': Buffer.byteLength(postData)
-      };
-      if (this.cookie) headers.Cookie = this.cookie;
-      const res = await req(this.ip, '/cgi_gdpr', 'POST', headers, postData);
-      return this.enc.AESDecrypt(res.body);
+      return await this._retry(async () => {
+        await this._throttle();
+        const encrypted = this.enc.AESEncrypt(plain, 0);
+        const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
+        const headers = {
+          Referer: `http://${this.ip}/`,
+          'Content-Type': 'text/plain',
+          'Content-Length': Buffer.byteLength(postData)
+        };
+        if (this.cookie) headers.Cookie = this.cookie;
+        const res = await req(this.ip, '/cgi_gdpr', 'POST', headers, postData);
+        return this.enc.AESDecrypt(res.body);
+      });
     } catch (e) {
-      return { error: e.message, degraded: true };
+      this.sessionValid = false;
+      return { error: 'router_unavailable', message: e.message };
     }
   }
 
@@ -107,7 +166,10 @@ class RouterClient {
       '[ETH_SWITCH#0,0,0,0,0,0#0,0,0,0,0,0]4,0',
       ''
     ].join('\r\n');
-    return await this.call(q);
+    const raw = await this.call(q);
+    if (raw && raw.error) return raw;
+    try { return this.parseStatus(raw); }
+    catch (e) { return { error: 'router_unavailable', message: e.message, raw }; }
   }
 
   parseStatus(raw) {
@@ -118,16 +180,14 @@ class RouterClient {
       if (m) { current = { name: m[1], fields: {} }; sections.push(current); }
       else if (current && line.includes('=')) {
         const [k, v] = line.split('=');
-        current.fields[k.trim()] = v;
+        current.fields[k.trim()] = (v || '').trim();
       }
     }
     return { raw, sections };
   }
 
   async getStatusStructured() {
-    const raw = await this.getStatus();
-    if (raw && raw.degraded) return raw;
-    return this.parseStatus(raw);
+    return await this.getStatus();
   }
 }
 
