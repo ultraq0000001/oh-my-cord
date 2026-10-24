@@ -1,0 +1,9 @@
+{
+  "name": "oh-my-cord",
+  "version": "0.1.0",
+  "description": "Ethernet patch cord diagnostic and link quality certification tool for TP-Link Archer C50 + PC NIC",
+  "private": true,
+  "scripts": {
+    "test-cable": "node src/index.js"
+  }
+}

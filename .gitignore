@@ -1,0 +1,8 @@
+node_modules/
+reports/
+OSVerInfo.tmp
+W10_VerDetail.tmp
+tmpAdaperInfo.txt
+*.tmp
+.ROUTER
+EOF

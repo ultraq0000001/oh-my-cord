@@ -1,0 +1,17 @@
+{
+  "project": "oh-my-cord",
+  "paths": {
+    "vendorRealtek": "vendor/realtek",
+    "tempRtkDiag": "C:/Users/kukus/AppData/Local/Temp/opencode/rtk_diag/Diagnostic_v2.0.8.3_1_0507/EXE/64",
+    "python": "C:/Program Files/Python310/python.exe",
+    "reports": "reports"
+  },
+  "thresholds": {
+    "linkUp": true,
+    "maxLatencyMs": 100,
+    "maxPacketLossPercent": 1
+  },
+  "server": {
+    "port": 3000
+  }
+}
