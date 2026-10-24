@@ -6,7 +6,7 @@ global.window = global;
 global.navigator = { appVersion: '' };
 global.$ = { extend: Object.assign };
 
-const tempDir = process.env.TEMP || process.env.TMP || path.join(process.env.LOCALAPPDATA, 'Temp', 'opencode');
+const tempDir = path.join(process.env.TEMP || process.env.TMP || path.join(process.env.LOCALAPPDATA, 'Temp'), 'opencode');
 const cryptoJS = path.join(tempDir, 'cryptoJS.min.js');
 const encrypt = path.join(tempDir, 'encrypt.js');
 const tpEncrypt = path.join(tempDir, 'tpEncrypt.js');
