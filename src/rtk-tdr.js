@@ -4,6 +4,7 @@ const fs = require('fs');
 
 class RealtekTDR {
   constructor() {
+    this.selectedAdapter = null;
     const root = process.cwd();
     const vendorDir = path.join(root, 'vendor', 'realtek');
     const tempDir = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\kukus\\AppData\\Local', 'Temp', 'opencode', 'rtk_diag', 'Diagnostic_v2.0.8.3_1_0507', 'EXE', '64');
@@ -16,6 +17,10 @@ class RealtekTDR {
       this.dllDir = vendorDir;
     }
     this.hasDLLs = fs.existsSync(path.join(this.dllDir, 'RTDiagLibV2.dll')) && fs.existsSync(path.join(this.dllDir, 'RtlDirectDiagLib64.dll'));
+  }
+
+  setAdapter(name) {
+    this.selectedAdapter = name;
   }
 
   async testCable() {

@@ -63,3 +63,29 @@ async function loadReports(){
 
 // dll status
 fetch('/api/status').then(r=>r.json()).then(d=>{ document.getElementById('dllStatus').textContent = d.hasDLLs?'DLLs found':'DLLs missing'; });
+
+// adapters
+const adapterSelect = document.getElementById('adapterSelect');
+fetch('/api/adapters').then(r=>r.json()).then(list=>{
+  list.forEach(a=>{
+    const o=document.createElement('option');
+    o.value=a.name; o.textContent=`${a.name} (${a.status})`;
+    adapterSelect.appendChild(o);
+  });
+  refreshLink();
+});
+document.getElementById('btnSelectAdapter').addEventListener('click', async ()=>{
+  const name = adapterSelect.value;
+  await fetch('/api/adapter/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  refreshLink();
+});
+async function refreshLink(){
+  const name = adapterSelect.value;
+  const r = await fetch('/api/link-status'+(name?`?name=${encodeURIComponent(name)}`:''));
+  const d = await r.json();
+  const dot = document.getElementById('linkDot');
+  const st = document.getElementById('linkStatus');
+  if (d && d.link === 'up') { dot.classList.add('up'); st.textContent = `UP ${d.speed||''} ${d.duplex||''}`; }
+  else { dot.classList.remove('up'); st.textContent = d ? (d.status||'DOWN') : 'unknown'; }
+}
+setInterval(refreshLink, 5000);

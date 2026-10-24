@@ -17,7 +17,10 @@ app.use(express.json());
 app.use(express.static(path.join(process.cwd(), 'public')));
 
 const RealtekTDR = require('./rtk-tdr');
+const NICInspector = require('./nic-inspector');
 const tdr = new RealtekTDR();
+const nic = new NICInspector();
+let selectedAdapter = null;
 
 function broadcast(msg) {
   const data = JSON.stringify(msg);
@@ -75,6 +78,22 @@ app.get('/api/reports', (req, res) => {
     try { return JSON.parse(fs.readFileSync(path.join(reportsDir, f), 'utf8')); } catch (e) { return null; }
   }).filter(Boolean);
   res.json(out);
+});
+
+app.get('/api/adapters', (req, res) => {
+  res.json(nic.listAdapters());
+});
+
+app.post('/api/adapter/select', (req, res) => {
+  const name = req.body && req.body.name;
+  selectedAdapter = name;
+  tdr.setAdapter(name);
+  res.json({ ok: true, selectedAdapter: name, linkStatus: nic.getLinkStatus(name) });
+});
+
+app.get('/api/link-status', (req, res) => {
+  const name = (req.query && req.query.name) || selectedAdapter;
+  res.json(nic.getLinkStatus(name));
 });
 
 wss.on('connection', ws => {
