@@ -5,6 +5,7 @@ const RouterTPLinkTarget = require('./targets/router-tp-link');
 const NullTarget = require('./targets/null-target');
 const RealtekTDR = require('./rtk-tdr');
 const NICInspector = require('./nic-inspector');
+const reporter = require('./reporter');
 const { readRouterConfig } = require('./utils');
 
 async function main() {

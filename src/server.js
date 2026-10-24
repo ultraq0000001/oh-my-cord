@@ -17,6 +17,7 @@ app.use(express.json());
 app.use(express.static(path.join(process.cwd(), 'public')));
 
 const RealtekTDR = require('./rtk-tdr');
+const reporter = require('./reporter');
 const NICInspector = require('./nic-inspector');
 const tdr = new RealtekTDR();
 const nic = new NICInspector();

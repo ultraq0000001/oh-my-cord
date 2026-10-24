@@ -29,6 +29,7 @@ try:
                 'status_text': status_map.get(s_int, f'Unknown({s_int})'), 
                 'length_raw': l_int,
                 'length_unsigned': l_int & 0xFFFFFFFF,
+                'length_status': 'measured' if l_int > 0 else 'error_code',
             })
             result['raw'][f'pair{i}_status'] = s_int
             result['raw'][f'pair{i}_length'] = l_int
@@ -36,6 +37,8 @@ try:
             result['pairs'].append({'pair': i, 'error': str(e)})
     rt.API_PHYDiagEnd()
     rt.API_DisableRTKDiag()
+    # NOTE: length_raw is a large negative value for all pairs; interpreted as
+    # error codes, not lengths. length requires Realtek driver install or Linux ethtool.
     print(json.dumps(result))
 except Exception as e:
     print(json.dumps({'error': str(e)}))
