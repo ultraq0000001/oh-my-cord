@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OH-MY-CORD</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="scanlines"></div>
+<header>
+  <h1>OH-MY-CORD</h1>
+  <span class="subtitle">Ethernet Patch Cord Diagnostic &amp; Certification</span>
+</header>
+<nav>
+  <button data-view="dashboard" class="active">Dashboard</button>
+  <button data-view="wiremap">Wire Map</button>
+  <button data-view="stress">Stress Test</button>
+  <button data-view="runall">Run All</button>
+  <button data-view="reports">Reports</button>
+</nav>
+<main>
+  <section id="dashboard" class="view active">
+    <h2>DASHBOARD</h2>
+    <p>System status: <span id="dllStatus">checking...</span></p>
+    <p>WebSocket: <span id="wsStatus">disconnected</span></p>
+  </section>
+  <section id="wiremap" class="view">
+    <h2>WIRE MAP (TDR)</h2>
+    <div class="pair-grid" id="pairGrid"></div>
+    <button id="btnWiremap">Run Wire Map</button>
+  </section>
+  <section id="stress" class="view">
+    <h2>STRESS TEST</h2>
+    <div id="stressInfo">Throughput: -- | Errors: 0</div>
+    <p>Wiggle prompt: shake cable to detect intermittent faults.</p>
+    <button id="btnStress">Run Stress Test</button>
+  </section>
+  <section id="runall" class="view">
+    <h2>RUN ALL</h2>
+    <div class="terminal" id="terminal"></div>
+    <button id="btnRunall">Run All</button>
+  </section>
+  <section id="reports" class="view">
+    <h2>REPORT HISTORY</h2>
+    <div id="reportsList"></div>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

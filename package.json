@@ -4,6 +4,11 @@
   "description": "Ethernet patch cord diagnostic and link quality certification tool for TP-Link Archer C50 + PC NIC",
   "private": true,
   "scripts": {
-    "test-cable": "node src/index.js"
+    "test-cable": "node src/index.js",
+    "start:web": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "ws": "^8.22.0"
   }
 }
