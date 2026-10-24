@@ -94,7 +94,7 @@ class RouterClient {
     await this._throttle();
     try {
       return await this._retry(async () => {
- = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
+const p = await req(this.ip, '/cgi/getParm', 'POST', { Referer: `http://${this.ip}/` });
         const ee = p.body.match(/ee="([^"]+)"/)[1];
         const nn = p.body.match(/nn="([^"]+)"/)[1];
         const seq = p.body.match(/seq="([^"]+)"/)[1];
@@ -128,67 +128,14 @@ class RouterClient {
     }
   }
 
-  async call(plain) {
-    if (!this.isSessionValid()) {
-      const lr = await this.login();
-      if (lr && lr.error) return lr;
-    }
-    await this._throttle();
-    try {
-      return await this._retry(async () => {
- = this.enc.AESEncrypt(plain, 0);
-        const postData = `sign=${encrypted.sign}\r\ndata=${encrypted.data}\r\n`;
-        const headers = {
-          Referer: `http://${this.ip}/`,
-          'Content-Type': 'text/plain',
-          'Content-Length': Buffer.byteLength(postData)
-        };
-        if (this.cookie) headers.Cookie = this.cookie;
-        const res = await req(this.ip, '/cgi_gdpr', 'POST', headers, postData);
-        return this.enc.AESDecrypt(res.body);
-      });
-    } catch (e) {
-      this.sessionValid = false;
-      return { error: 'router_unavailable', message: e.message };
-    }
-  }
 
-  async getStatus() {
-    const q = [
-      '5&5&5&5&1',
-      '[LAN_ETH_INTF#0,0,0,0,0,0#0,0,0,0,0,0]0,0',
-      '[WAN_ETH_INTF#0,0,0,0,0,0#0,0,0,0,0,0]1,0',
-      '[WAN_ETH_INTF_STATS#0,0,0,0,0,0#0,0,0,0,0,0]2,0',
-      '[STAT_ENTRY#0,0,0,0,0,0#0,0,0,0,0,0]3,0',
-      '[ETH_SWITCH#0,0,0,0,0,0#0,0,0,0,0,0]4,0',
-      ''
-    ].join('\r\n');
-    const raw = await Promise.race([
-      this.call(q),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('getStatus timeout after 15s')), 15000))
-    ]).catch(e => ({ error: 'router_unavailable', message: e.message }));
-    if (raw && raw.error) return raw;
-    try { return this.parseStatus(raw); }
-    catch (e) { return { error: 'router_unavailable', message: e.message, raw }; }
-  }
-
-  parseStatus(raw) {
-    const sections = [];
-    let current = null;
-    for (const line of String(raw).split(/\r?\n/)) {
-      const m = line.match(/^\[(.+)\]$/);
-      if (m) { current = { name: m[1], fields: {} }; sections.push(current); }
-      else if (current && line.includes('=')) {
-        const [k, v] = line.split('=');
-        current.fields[k.trim()] = (v || '').trim();
-      }
-    }
-    return { raw, sections };
-  }
-
-  async getStatusStructured() {
-    return await this.getStatus();
+  async isConnected() {
+    const r = await this.login();
+    if (r && r.error) return false;
+    return true;
   }
 }
+
+module.exports = RouterClient;
 
 module.exports = RouterClient;

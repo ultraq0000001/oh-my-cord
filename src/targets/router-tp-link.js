@@ -24,9 +24,8 @@ class RouterTPLinkTarget extends NetworkTarget {
       if (!c.ok) return { error: 'router_unavailable' };
     }
     try {
-      const s = await this.client.getStatus();
-      if (s && s.error) return { error: 'router_unavailable' };
-      return { status: s };
+      const ok = await this.client.isConnected();
+      return { connected: ok };
     } catch (e) { return { error: 'router_unavailable', message: e.message }; }
   }
   async getCounters() { return this.getLinkState(); }

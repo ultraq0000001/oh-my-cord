@@ -9,6 +9,7 @@ const { readRouterConfig } = require('./utils');
 
 async function main() {
   console.log('=== oh-my-cord ===\n');
+  console.log('Router: optional (not required for cable testing)');
 
   const nicInspector = new NICInspector();
   const adapters = nicInspector.listAdapters();

@@ -10,6 +10,11 @@ try:
     rt.API_EnableRTKDiag()
     rt.API_PHYDiagStart()
     time.sleep(3)
+    try:
+        drt.API_CableLengthNormal()
+    except Exception:
+        pass
+    time.sleep(2)
     for i in range(4):
         try:
             s = drt.API_GetCablePairStatus(i)
@@ -23,6 +28,7 @@ try:
                 'status': s_int, 
                 'status_text': status_map.get(s_int, f'Unknown({s_int})'), 
                 'length_raw': l_int,
+                'length_unsigned': l_int & 0xFFFFFFFF,
             })
             result['raw'][f'pair{i}_status'] = s_int
             result['raw'][f'pair{i}_length'] = l_int
